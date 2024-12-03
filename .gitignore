@@ -1,0 +1,4 @@
+azure-terraform/.terraform.lock.hcl
+azure-terraform/terraform.tfstate
+azure-terraform/terraform.tfstate.backup
+azure-terraform/.terraform/*

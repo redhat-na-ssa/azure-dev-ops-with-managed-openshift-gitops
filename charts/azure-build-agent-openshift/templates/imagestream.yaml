@@ -1,0 +1,18 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ include "azure_agent-source.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "azure-build-agent-openshift.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with .Values.buildConfig.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ include "azure_agent-source.name" . }}
+spec:
+  lookupPolicy:
+    local: false
+status:
+  dockerImageRepository: {{ include "azure_agent-source.imagestream" . }}

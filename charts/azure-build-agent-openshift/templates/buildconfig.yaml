@@ -1,0 +1,58 @@
+#https://github.com/kevchu3/azure-buildagent-container/blob/main/resources/buildconfig.yaml
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  {{- if .Values.buildConfig.name }}
+  name: {{ .Values.buildConfig.name }}
+  {{- else }}
+  name: {{ include "azure-build-agent-openshift.name" . }}
+  {{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "azure-build-agent-openshift.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  {{- with .Values.buildConfig.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: {{ include "azure-build-agent-openshift.name" . }}:latest
+  source:
+    dockerfile: |
+      FROM registry.access.redhat.com/ubi8/dotnet-60-runtime:latest
+      ENV _BUILDAH_STARTED_IN_USERNS="" \
+          BUILDAH_ISOLATION=chroot \
+          STORAGE_DRIVER=vfs
+
+      USER root
+      COPY start.sh .
+      RUN dnf install git jq podman-docker -y && \
+          curl $AZP_AGENT_PACKAGE_LATEST_URL --output vsts-agent-linux-x64.tar.gz && \
+          tar zxvf vsts-agent-linux-x64.tar.gz && \
+          rm vsts-agent-linux-x64.tar.gz && \
+          chmod 755 *.sh && chown -R default:root . && \
+          touch /etc/containers/nodocker && \
+          usermod --add-subuids 100000-165535 default && \
+          usermod --add-subgids 100000-165535 default && \
+          setcap cap_setuid+eip /usr/bin/newuidmap && \
+          setcap cap_setgid+eip /usr/bin/newgidmap
+      USER 1001
+      ENTRYPOINT ["./start.sh"]
+    configMaps:
+      - configMap:
+          name: start-sh
+  strategy:
+    dockerStrategy:
+      from:
+        kind: ImageStreamTag
+        name: dotnet-runtime:6.0
+        namespace: openshift
+      env:
+        - name: AZP_AGENT_PACKAGE_LATEST_URL
+          value: "{{ .Values.buildConfig.agent_package_url }}"            
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
