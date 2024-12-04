@@ -1,8 +1,12 @@
 
 #Set Variables
-variable "KUBE_CONFIG_PATH" {
+variable "AZDO_GITHUB_SERVICE_CONNECTION_PAT" {
   type = string
-  default = "~/.kube/config"
+  sensitive = true
+}
+
+variable "AZDO_ORG_SERVICE_URL" {
+  type = string
 }
 
 variable "AZP_URL" {
@@ -17,6 +21,7 @@ variable "AZP_TOKEN" {
 variable "AZP_POOL" {
   type = string
 }
+
 
 variable "PIPELINE_NAMESPACE" {
   type = string
@@ -54,7 +59,7 @@ variable "IMAGEREGISTRY_ROUTE_NAMESPACE" {
 }
 
 
-#Create Azure Agent Build via Helm
+#Create Azure Agent Build via Helm on OCP
 resource "helm_release" "azure-build-agent-openshift" {
   name             = "azure-build-agent-openshift"
   chart            = "../charts/azure-build-agent-openshift"
@@ -84,7 +89,8 @@ resource "helm_release" "azure-build-agent-openshift" {
 
 }
 
-#Create Azure Pipeline Info in OCP via Helm
+#Create Azure Resources Pipeline will deploy into on OCP via Helm
+
 resource "helm_release" "azure-pipeline" {
   depends_on = [helm_release.azure-build-agent-openshift]
   name             = "azure-devops-pipeline"
@@ -111,6 +117,7 @@ resource "helm_release" "azure-pipeline" {
 }
 
 #Get ImageRegistry Route(Will move to providers in the next version)
+
 data "external" "imageregistry_route" {
   program = ["bash", "${path.module}/get-default-hostname.sh"]
 
@@ -122,6 +129,7 @@ data "external" "imageregistry_route" {
 
 
 #Get Secret(Will move to providers in the next version)
+
 data "external" "sa_secret" {
   depends_on = [helm_release.azure-pipeline]
   program = ["bash", "${path.module}/get-secret-token.sh"]
@@ -133,6 +141,7 @@ data "external" "sa_secret" {
 }
 
 #Get Cluster Server Address(Will move to providers in the next version)
+
 data "external" "server_url" {
   depends_on = [helm_release.azure-pipeline]
   program = ["bash", "${path.module}/get-server-info.sh"]
@@ -140,41 +149,49 @@ data "external" "server_url" {
 }
 
 # Create an Azure DevOps Project
+
 resource "azuredevops_project" "azure-devops-pipeline" {
   name       = "AzureDevOpsPipeline"
   visibility = "private"
 }
 
 #Create an OpenShift Registry Service Connection
+
 resource "azuredevops_serviceendpoint_dockerregistry" "openshift-registry" {
   project_id            = azuredevops_project.azure-devops-pipeline.id
   service_endpoint_name = "openshift-registry"  
   docker_registry = chomp(format("%s://%s","https",base64decode(data.external.imageregistry_route.result.encoded_route)))
   docker_username            = "${var.PIPELINE_SERVICEACCOUNT_NAME}"
-  docker_password            = chomp(data.external.sa_secret.result.encoded_secret)
+  docker_password            = base64decode(data.external.sa_secret.result.encoded_secret)
   registry_type = "Others"
   description = "OpenShift Pipeline Registry Service Connection"
 }
+
+#Create an OpenShift Cluster Service Connection
 
 resource "azuredevops_serviceendpoint_kubernetes" "openshift-service-endpoint" {
   project_id            = azuredevops_project.azure-devops-pipeline.id
   service_endpoint_name = "openshift"
   apiserver_url         = chomp(base64decode(data.external.server_url.result.encoded_apiserver))
-  authorization_type    = "Kubeconfig"
+  authorization_type    = "ServiceAccount"
 
-  kubeconfig {
-    kube_config            = file("~/.kube/config")
-    accept_untrusted_certs = true
-  }
+  service_account {
+    token   = data.external.sa_secret.result.encoded_secret
+    ca_cert = data.external.sa_secret.result.encoded_ca
+  } 
 }
+
+#Create an Azure DevOps GitOps Connection
 
 resource "azuredevops_serviceendpoint_github" "gitops-connection" {
   project_id            = azuredevops_project.azure-devops-pipeline.id
   service_endpoint_name = "GitOps Connection"
   auth_personal {
-    personal_access_token = ""
+    personal_access_token = var.AZDO_GITHUB_SERVICE_CONNECTION_PAT
   }
 }
+
+# Create an Azure DevOps Build Definition Connection
 
 resource "azuredevops_build_definition" "azuredevops_build_definition" {
   project_id = azuredevops_project.azure-devops-pipeline.id
@@ -189,16 +206,22 @@ resource "azuredevops_build_definition" "azuredevops_build_definition" {
   }
 }
 
+# Create an Azure Agent Pool Definition Connection
+
 resource "azuredevops_agent_pool" "azuredevops_agent_pool" {
   name           = var.AZP_POOL
   auto_provision = false
   auto_update    = false
 }
 
+# Create an Azure DevOps Agent Queue Connection
+
 resource "azuredevops_agent_queue" "azuredevops_agent_queue" {
   project_id    = azuredevops_project.azure-devops-pipeline.id
   agent_pool_id = azuredevops_agent_pool.azuredevops_agent_pool.id
 }
+
+# Authorize Azure DevOps Pipeline to use Agent Queue
 
 resource "azuredevops_pipeline_authorization" "azuredevops_pipeline_authorization_queue" {
   project_id  = azuredevops_project.azure-devops-pipeline.id
@@ -207,12 +230,16 @@ resource "azuredevops_pipeline_authorization" "azuredevops_pipeline_authorizatio
   pipeline_id = azuredevops_build_definition.azuredevops_build_definition.id
 }
 
+# Authorize Azure DevOps Pipeline to use GitOps Connection
+
 resource "azuredevops_pipeline_authorization" "azuredevops_pipeline_authorization_endpoint_gitops" {
   project_id  = azuredevops_project.azure-devops-pipeline.id
   resource_id = azuredevops_serviceendpoint_github.gitops-connection.id
   type        = "endpoint"
   pipeline_id = azuredevops_build_definition.azuredevops_build_definition.id
 }
+
+# Authorize Azure DevOps Pipeline to use OpenShift Registry Connection
 
 resource "azuredevops_pipeline_authorization" "azuredevops_pipeline_authorization_endpoint_registry" {
   project_id  = azuredevops_project.azure-devops-pipeline.id
@@ -221,11 +248,11 @@ resource "azuredevops_pipeline_authorization" "azuredevops_pipeline_authorizatio
   pipeline_id = azuredevops_build_definition.azuredevops_build_definition.id
 }
 
+# Authorize Azure DevOps Pipeline to use OpenShift Connection
 
-output "ca_object" {
-  value = data.external.sa_secret.result.encoded_ca
-}
-
-output "token_object" {
-  value = data.external.sa_secret.result.encoded_secret
+resource "azuredevops_pipeline_authorization" "azuredevops_pipeline_authorization_endpoint_openshift" {
+  project_id  = azuredevops_project.azure-devops-pipeline.id
+  resource_id = azuredevops_serviceendpoint_kubernetes.openshift-service-endpoint.id
+  type        = "endpoint"
+  pipeline_id = azuredevops_build_definition.azuredevops_build_definition.id
 }

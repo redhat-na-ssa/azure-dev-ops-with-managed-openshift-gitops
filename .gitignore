@@ -1,4 +1,8 @@
-azure-terraform/.terraform.lock.hcl
-azure-terraform/terraform.tfstate
-azure-terraform/terraform.tfstate.backup
-azure-terraform/.terraform/*
+pipeline-example1-terraform/.terraform.lock.hcl
+pipeline-example1-terraform/terraform.tfstate
+pipeline-example1-terraform/terraform.tfstate.backup
+pipeline-example1-terraform/.terraform/*
+.env
+testfile.txt
+.kube/config
+WIP/
