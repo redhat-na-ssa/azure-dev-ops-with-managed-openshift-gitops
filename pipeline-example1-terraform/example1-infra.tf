@@ -22,6 +22,19 @@ variable "AZP_POOL" {
   type = string
 }
 
+variable "GITHUB_REPO_NAME" {
+  type = string
+}
+
+variable "GITHUB_REPO_BRANCH" {
+  type = string
+  default = "main"
+}
+
+variable "GITHUB_AZURE_PIPELINE_PATH" {
+  type = string
+  default = "azure-pipelines.yml"
+}
 
 variable "PIPELINE_NAMESPACE" {
   type = string
@@ -58,7 +71,6 @@ variable "IMAGEREGISTRY_ROUTE_NAMESPACE" {
   default = "openshift-image-registry"
 }
 
-
 #Create Azure Agent Build via Helm on OCP
 resource "helm_release" "azure-build-agent-openshift" {
   name             = "azure-build-agent-openshift"
@@ -87,6 +99,7 @@ resource "helm_release" "azure-build-agent-openshift" {
     value = var.BUILD_SERVICEACCOUNT_NAME
   }
 
+
 }
 
 #Create Azure Resources Pipeline will deploy into on OCP via Helm
@@ -114,12 +127,27 @@ resource "helm_release" "azure-pipeline" {
     value = var.BUILD_NAMESPACE
   }
 
+  set {
+    name = "deploy_arogcd_app"
+    value = "false"
+  }
+
+  set {
+    name = "github_repo_devops"
+    value = var.GITHUB_REPO_NAME
+  }
+
+  set {
+    name = "github_repo_devops_ref"
+    value = var.GITHUB_REPO_BRANCH
+  }
+  
 }
 
 #Get ImageRegistry Route(Will move to providers in the next version)
 
 data "external" "imageregistry_route" {
-  program = ["bash", "${path.module}/get-default-hostname.sh"]
+  program = ["bash", "../scripts/get-default-hostname.sh"]
 
   query = {
     namespace = var.IMAGEREGISTRY_ROUTE_NAMESPACE
@@ -132,7 +160,7 @@ data "external" "imageregistry_route" {
 
 data "external" "sa_secret" {
   depends_on = [helm_release.azure-pipeline]
-  program = ["bash", "${path.module}/get-secret-token.sh"]
+  program = ["bash", "../scripts/get-secret-token.sh"]
 
   query = {
     namespace = var.PIPELINE_NAMESPACE
@@ -144,7 +172,7 @@ data "external" "sa_secret" {
 
 data "external" "server_url" {
   depends_on = [helm_release.azure-pipeline]
-  program = ["bash", "${path.module}/get-server-info.sh"]
+  program = ["bash", "../scripts/get-server-info.sh"]
 
 }
 
@@ -195,13 +223,13 @@ resource "azuredevops_serviceendpoint_github" "gitops-connection" {
 
 resource "azuredevops_build_definition" "azuredevops_build_definition" {
   project_id = azuredevops_project.azure-devops-pipeline.id
-  name       = "OpenShift Pipeline Example"
+  name       = "OpenShift Pipeline Example1"
 
   repository {
     repo_type             = "GitHub"
-    repo_id               = "MoOyeg/azure-pipelines-openshift"
-    branch_name           = "main"
-    yml_path              = "azure-pipelines.yml"
+    repo_id               = var.GITHUB_REPO_NAME
+    branch_name           = var.GITHUB_REPO_BRANCH
+    yml_path              = var.GITHUB_AZURE_PIPELINE_PATH
     service_connection_id = azuredevops_serviceendpoint_github.gitops-connection.id
   }
 }

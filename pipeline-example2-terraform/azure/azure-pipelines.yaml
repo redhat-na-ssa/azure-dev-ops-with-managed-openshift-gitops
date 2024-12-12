@@ -1,0 +1,93 @@
+# Starter pipeline
+
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+resources:
+ repositories:
+   - repository: github_repo_devops
+     type: github
+     endpoint: "Gitops Connection"
+     name: MoOyeg/azure-dev-ops-with-managed-openshift-gitops
+     ref: $(Build.SourceBranchName)
+
+pool:
+  name: AzurePipeline
+
+variables:
+- name: GIT_SHA
+  value: $(Build.SourceVersion)
+- name: GIT_BRANCH
+  value: $(Build.SourceBranchName)
+- name: project-name-dev
+  value: 'ado-openshift'
+- name: image-name
+  value: 'ado-react-app'
+
+stages:
+  - stage: CI
+    displayName: CI Stage
+    jobs:
+      - job: build
+        displayName: build
+        steps:
+        - task: CmdLine@2
+          inputs:
+            script: ls $(Build.SourcesDirectory)            
+        - task: Docker@2.240.3
+          displayName: Build
+          inputs:
+            containerRegistry: 'container-registry-connection'
+            repository: '$(project-name-dev)/$(image-name)'
+            command: 'build'
+            Dockerfile: $(Build.SourcesDirectory)/react-app-example/app/Dockerfile
+            tags: $(Build.BuildId)
+        - task: Docker@2.240.2
+          displayName: 'Push Docker image to OpenShift internal registry'
+          inputs:
+            command: 'push'
+            containerRegistry: 'container-registry-connection'
+            repository: '$(project-name-dev)/$(image-name)'
+            tags: $(Build.BuildId)
+  - stage: Update_Gitops_Repo
+    dependsOn: CI
+    displayName: Gitops Update Stage
+    jobs:
+      - job: update_Git_Repo
+        displayName: Update Gitops Repo
+        steps:
+        - checkout: github_repo_devops
+          displayName: Checkout Gitops Repository
+          clean: true          
+          persistCredentials: true
+        - task: Bash@3
+          displayName: Update image SHA signature
+          inputs:
+            targetType: inline
+            script: |
+              app_line_number=$(grep -n "name: react-replace-image" $(Build.SourcesDirectory)/react-app-example/manifests/dev/kustomization.yaml | cut -d ":" -f1)
+              if [ -z "$app_line_number" ]; then
+                echo "Will not replace the image in the kustomization.yaml file"
+              else
+                  image_line_number=$((app_line_number + 1))
+                  sed -i "${image_line_number}s,.*,   newName: $(project-name-dev)/$(image-name)," $(Build.SourcesDirectory)/react-app-example/manifests/dev/kustomization.yaml
+                  if [ $? -ne 0 ]; then
+                      echo "Error in replacing the image in the kustomization.yaml file"
+                  else
+                      echo "Image replaced in the Dev kustomization.yaml file"
+                      image_tage_line_number=$((app_line_number + 2))
+                      sed -i "${image_tage_line_number}s,.*,   newTag: \'$(Build.BuildId)\'," $(Build.SourcesDirectory)/react-app-example/manifests/dev/kustomization.yaml
+                      echo "Image Tag replaced in the Prod kustomization.yaml file"        
+                  fi
+              fi
+              cd $(Build.SourcesDirectory)
+              git config --local user.name "azure-pipeline-bot"
+              git config --local user.email "azure-pipeline-bot@users.noreply.github.com"
+              git add ./react-app-example/manifests/dev/kustomization.yaml
+              git commit -m 'Updating Git Repo with image BuildID : $(Build.BuildId)'
+              git push origin HEAD:$GIT_BRANCH
+

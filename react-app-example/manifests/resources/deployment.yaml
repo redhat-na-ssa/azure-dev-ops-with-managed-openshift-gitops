@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ado-gitops-example2
+  annotations:
+    alpha.image.policy.openshift.io/resolve-names: '*'
+spec:
+  selector:
+    matchLabels:
+      app: ado-gitops-example2
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ado-gitops-example2
+    spec:
+      containers:
+        - name: container
+          image: react-replace-image
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env: []
+      imagePullSecrets: []
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  paused: false

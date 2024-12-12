@@ -1,0 +1,30 @@
+{{- if .Values.deploy_arogcd_app -}}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ado-devops-{{ .Release.Name }}
+  namespace: {{ .Values.gitops_namespace }}
+spec:
+  ignoreDifferences:
+  - group: route.openshift.io/v1
+    kind: Route
+    jsonPointers:
+    - /spec/alternateBackends
+  - group: apps/v1
+    kind: Deployment
+    jsonPointers:
+    - /spec/template/spec/containers/0/image
+  destination:
+    namespace: {{ .Release.Namespace }}
+    server: 'https://kubernetes.default.svc'
+  project: default
+  source:
+    path: {{ .Values.github_repo_devops_path }}
+    repoURL: {{ include "argo_app_repo_url" . }}
+    targetRevision: {{ .Values.github_repo_devops_ref }}
+  syncPolicy:
+    automated: {}
+    syncOptions:
+      - CreateNamespace=true
+
+{{- end }}

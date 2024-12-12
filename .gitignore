@@ -6,3 +6,10 @@ pipeline-example1-terraform/.terraform/*
 testfile.txt
 .kube/config
 WIP/
+pipeline-example2-terraform/*/.terraform.lock.hcl
+pipeline-example2-terraform/*/terraform.tfstate
+pipeline-example2-terraform/*/terraform.tfstate.backup
+pipeline-example2-terraform/*/.terraform/*
+terraform.tfstate
+test.sh
+pipeline-example2-terraform/azure/.terraform.tfstate.lock.info

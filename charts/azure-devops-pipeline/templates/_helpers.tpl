@@ -69,3 +69,9 @@ Create the name of the service account to use
 {{- printf "%s-%s" (include "azure-devops-pipeline.serviceAccountName" .) "devops-secret" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
+
+
+{{- define "argo_app_repo_url" -}}
+{{- $tempimgurl := printf "%s%s" (printf "https://github.com/") .Values.github_repo_devops }}
+{{- printf  $tempimgurl }}
+{{- end }}

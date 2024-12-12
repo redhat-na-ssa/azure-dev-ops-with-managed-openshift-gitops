@@ -1,0 +1,13 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: ado-gitops-example2
+  labels: {}
+spec:
+  to:
+    kind: Service
+    name: ado-gitops-example2
+  tls: {}
+  port:
+    targetPort: 8080
+  alternateBackends: []

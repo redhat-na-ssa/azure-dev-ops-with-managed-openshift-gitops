@@ -1,0 +1,7 @@
+resources:
+  - ../../resources
+
+ images:
+ - name: react-replace-image
+   newName: image-registry.openshift-image-registry.svc:5000/openshift/httpd
+    newTag: latest
