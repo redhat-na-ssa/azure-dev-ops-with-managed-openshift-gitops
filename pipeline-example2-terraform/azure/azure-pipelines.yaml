@@ -12,7 +12,7 @@ resources:
    - repository: github_repo_devops
      type: github
      endpoint: "GitHub Connection"
-     name: MoOyeg/azure-dev-ops-with-managed-openshift-gitops
+     name: redhat-na-ssa/azure-dev-ops-with-managed-openshift-gitops
      ref: $(Build.SourceBranchName)
    - repository: github_src_repo
      type: github
