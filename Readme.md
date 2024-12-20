@@ -24,18 +24,11 @@ Repo contains example Azure Pipeline Deployment and automation
   oc patch configs.imageregistry.operator.openshift.io/cluster --patch '{"spec":{"defaultRoute":true}}' --type=merge
   ```
 
+- [Create an Azure DevOps Organization](https://github.com/redhat-na-ssa/azure-pipeline-demo-react-app/blob/main/OpenShift-Deployment.md#create-an-azure-project)
+
 - [Create Azure DevOps Personal Access Token](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops&tabs=Windows). Automation was tested with a token that had full access.
   
 - [Create your Github Personal Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).You can use fine-grained tokens restricted to the repos you will fork for the examples below.
-
-- Automation requires that you are logged into OpenShift Cluster before running and that you provide the active kubeconfig as part of the steps.
-Example method to be run inside cloned repo folder
-  ```bash
-  mkdir ./.kube
-  touch ./.kube/config
-  export KUBECONFIG=$PWD/.kube/config
-  oc login
-  ```
 
 ## Deploy Pipeline Example 1
 Pipeline Example 1 will   
@@ -44,18 +37,27 @@ Pipeline Example 1 will
   3 When pipeline is started, Pipeline will build a Dotnet image, push it into the internal OpenShift image registry and deploy a sample application using that image.  
 
 ### Steps to deploy Example 1
-- [Fork Sample Github Repository](https://github.com/rh-mobb/azure-pipelines-openshift).Please edit the your azure-pipelines.yaml file, change the name of the devops pool to a name of your choice. Example - [azure-pipelines.yaml](https://github.com/MoOyeg/azure-pipelines-openshift/blob/main/azure-pipelines.yml)- Example used "AzurePipeline" . The automation expects to create the pool and will fail if the pool already exists. Pool name cannot be "Default"
+- [Fork Sample Github Repository](https://github.com/MoOyeg/azure-pipelines-openshift).Please edit the azure-pipelines.yaml file in your forked repo, change the name of the devops pool to a name of your choice. Example - [azure-pipelines.yaml](https://github.com/MoOyeg/azure-pipelines-openshift/blob/main/azure-pipelines.yml)- Example used "AzurePipeline" . The automation expects to create the pool and will fail if the pool already exists. Pool name cannot be "Default"
 
-- Export the variables needed for automation 
+- Automation requires that you are logged into OpenShift Cluster before running and that you provide the active kubeconfig as part of the steps.
+Example method to be run inside forked repo folder
+  ```bash
+  mkdir ./.kube
+  touch ./.kube/config
+  export KUBECONFIG=$PWD/.kube/config
+  oc login
+  ```
 
-  TF_VAR_AZP_URL = AZURE DevOps Org URL
-  TF_VAR_AZP_TOKEN = Azure DevOps Personal Access Token
-  TF_VAR_AZP_POOL = Azure DevOps Pool name set in azure-pipelines.yaml above
-  TF_VAR_GITHUB_REPO_NAME =  Your Github Repo
-  TF_VAR_GITHUB_REPO_BRANCH = Github Branch for your Repo
-  TF_VAR_GITHUB_AZURE_PIPELINE_PATH = Path in Github Repo for azure-pipelines file.
-  TF_VAR_AZDO_GITHUB_SERVICE_CONNECTION_PAT = Github Personal Token
-  TF_VAR_KUBE_CONFIG_PATH = Path to active kubeconfig file
+- Export the variables needed for automation  
+
+  TF_VAR_AZP_URL = AZURE DevOps Org URL  
+  TF_VAR_AZP_TOKEN = Azure DevOps Personal Access Token  
+  TF_VAR_AZP_POOL = Azure DevOps Pool name set in azure-pipelines.yaml above  
+  TF_VAR_GITHUB_REPO_NAME =  Your Github Repo  
+  TF_VAR_GITHUB_REPO_BRANCH = Github Branch for your Repo  
+  TF_VAR_GITHUB_AZURE_PIPELINE_PATH = Path in Github Repo for azure-pipelines file.  
+  TF_VAR_AZDO_GITHUB_SERVICE_CONNECTION_PAT = Github Personal Token  
+  TF_VAR_KUBE_CONFIG_PATH = Path to active kubeconfig file  
 
   Example Export
   ```bash
@@ -71,15 +73,15 @@ Pipeline Example 1 will
   export TF_VAR_AZDO_ORG_SERVICE_URL=${TF_VAR_AZP_URL}
   export TF_VAR_AZDO_GITHUB_SERVICE_CONNECTION_PAT=.........
   export KUBE_CONFIG_PATH=${KUBECONFIG}
-  export TF_VAR_KUBE_CONFIG_PATH=${KUBECONFIG}
+  export TF_VAR_KUBE_CONFIG_PATH=${KUBECONFIG}  
   ```
 
-- Run automation to deploy pipeline exxample
+- Run automation to deploy pipeline example  
 
   ```bash
-  cd ./pipeline-example1-terraform
-  terraform init --upgrade
-  terraform apply -auto-approve
+    cd ./pipeline-example1-terraform
+    terraform init --upgrade
+    terraform apply -auto-approve
   ```
 
 - Confirmation
@@ -105,7 +107,7 @@ Pipeline Example 1 will
 
 
 ### Helm Only for Example 1
-If you do not want the end-to-end terraform install and want to do those manually. Run the same steps except the terraform from above.Helm can be used to deploy the rest.
+If you do not want the end-to-end terraform install and want do the examples manually. Run the same steps except the terraform from above.Helm can be used to deploy the rest.
 
 ```bash
 helm install azure-build-agent-openshift \
@@ -146,9 +148,16 @@ Pipeline Example 2 will
 
 - [Destroy Example 1 if installed before proceeding](#cleanup-example-1)
 
-- [Fork this Github Repository](https://github.com/MoOyeg/azure-dev-ops-with-managed-openshift-gitops.git).Please edit the your azure-pipelines.yaml file, change the name of the devops pool to a name of your choice.
+- [Fork Sample Github Repository](https://github.com/redhat-na-ssa/azure-dev-ops-with-managed-openshift-gitops.git).Please edit the your azure-pipelines.yaml file, change the name of the devops pool to a name of your choice.  
 
--
+- Automation requires that you are logged into OpenShift Cluster before running and that you provide the active kubeconfig as part of the steps.
+Example method to be run inside forked repo folder
+  ```bash
+  mkdir ./.kube
+  touch ./.kube/config
+  export KUBECONFIG=$PWD/.kube/config
+  oc login
+  ```
 
 - Install OpenShift Gitops
   ```bash
@@ -174,7 +183,7 @@ Pipeline Example 2 will
   export TF_VAR_AZP_URL=https://dev.azure.com/YourOrg
   export TF_VAR_AZP_TOKEN=.......
   export TF_VAR_AZP_POOL="AzurePipeline"
-  export TF_VAR_GITHUB_REPO_NAME="MoOyeg/azure-dev-ops-with-managed-openshift-gitops"
+  export TF_VAR_GITHUB_REPO_NAME="redhat-na-ssa/azure-dev-ops-with-managed-openshift-gitops"
   export TF_VAR_GITHUB_REPO_BRANCH="master"
   export TF_VAR_GITHUB_AZURE_PIPELINE_PATH="/pipeline-example2-terraform/azure/azure-pipelines.yaml"
   export AZDO_PERSONAL_ACCESS_TOKEN=${TF_VAR_AZP_TOKEN}

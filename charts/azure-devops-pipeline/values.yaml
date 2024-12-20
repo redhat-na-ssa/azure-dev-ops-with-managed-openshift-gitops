@@ -6,7 +6,7 @@
 replicaCount: 1
 deploy_arogcd_app: true
 buildNamespace: "azure-build"
-github_repo_devops: "MoOyeg/azure-dev-ops-with-managed-openshift-gitops"
+github_repo_devops: "redhat-na-ssa/azure-dev-ops-with-managed-openshift-gitops"
 github_repo_devops_ref: "main"
 github_repo_devops_path: "react-app-example/manifests/dev/"
 gitops_namespace: "openshift-gitops"
